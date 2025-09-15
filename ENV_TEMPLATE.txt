@@ -1,0 +1,26 @@
+# Copy this content to your .env file and replace the placeholder values
+
+# NEXT
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+
+# APPWRITE - Replace with your actual Appwrite credentials
+NEXT_PUBLIC_APPWRITE_ENDPOINT=https://cloud.appwrite.io/v1
+NEXT_PUBLIC_APPWRITE_PROJECT=your-project-id
+NEXT_APPWRITE_KEY=your-api-key
+APPWRITE_DATABASE_ID=your-database-id
+APPWRITE_USER_COLLECTION_ID=users
+APPWRITE_BANK_COLLECTION_ID=banks
+APPWRITE_TRANSACTION_COLLECTION_ID=transactions
+
+# PLAID - Replace with your actual Plaid credentials
+PLAID_CLIENT_ID=your-plaid-client-id
+PLAID_SECRET=your-plaid-secret
+PLAID_ENV=sandbox
+PLAID_PRODUCTS=auth,transactions,identity
+PLAID_COUNTRY_CODES=US,CA
+
+# DWOLLA - Replace with your actual Dwolla credentials
+DWOLLA_KEY=your-dwolla-key
+DWOLLA_SECRET=your-dwolla-secret
+DWOLLA_BASE_URL=https://api-sandbox.dwolla.com
+DWOLLA_ENV=sandbox

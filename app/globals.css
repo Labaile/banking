@@ -272,10 +272,18 @@
   /* Auth */
   .auth-asset {
     @apply flex h-screen w-full sticky top-0 items-center justify-end bg-sky-1 max-lg:hidden;
+    flex: 0 0 50%; /* Ensure it takes half the width */
+    min-width: 500px; /* Ensure minimum width */
   }
 
   /* Auth Form */
   .auth-form {
+    @apply flex min-h-screen w-full max-w-[420px] flex-col justify-center gap-5 py-10 md:gap-8;
+    display: flex !important; /* Force flex display */
+    flex-direction: column !important; /* Ensure column direction */
+  }
+
+  .auth-form-container {
     @apply flex min-h-screen w-full max-w-[420px] flex-col justify-center gap-5 py-10 md:gap-8;
   }
 

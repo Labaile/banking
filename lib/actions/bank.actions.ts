@@ -66,8 +66,18 @@ export const getAccounts = async ({ userId }: getAccountsProps) => {
 // Get one bank account
 export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
   try {
+    // Validate appwriteItemId before proceeding
+    if (!appwriteItemId) {
+      throw new Error("AppwriteItemId is required");
+    }
+
     // get bank from db
     const bank = await getBank({ documentId: appwriteItemId });
+    
+    // Add null check here
+    if (!bank) {
+      throw new Error(`Bank with ID ${appwriteItemId} not found`);
+    }
 
     // get account info from plaid
     const accountsResponse = await plaidClient.accountsGet({
@@ -97,9 +107,15 @@ export const getAccount = async ({ appwriteItemId }: getAccountProps) => {
       institutionId: accountsResponse.data.item.institution_id!,
     });
 
-    const transactions = await getTransactions({
-      accessToken: bank?.accessToken,
-    });
+    let transactions = [];
+    try {
+      transactions = await getTransactions({
+        accessToken: bank?.accessToken,
+      });
+    } catch (transactionError) {
+      console.error("Failed to fetch transactions, continuing with empty array:", transactionError);
+      // Continue with empty transactions array if transaction fetch fails
+    }
 
     const account = {
       id: accountData.account_id,
@@ -154,8 +170,22 @@ export const getTransactions = async ({
   let transactions: any = [];
 
   try {
+    // Validate access token before making the API call
+    if (!accessToken) {
+      throw new Error("Access token is required for transactions sync");
+    }
+
+    // Validate access token format (should be a string and not empty)
+    if (typeof accessToken !== 'string' || accessToken.trim() === '') {
+      throw new Error("Invalid access token format");
+    }
+
+    console.log("Starting transactions sync with access token:", accessToken.substring(0, 10) + "...");
+
     // Iterate through each page of new transaction updates for item
     while (hasMore) {
+      console.log("Making transactionsSync request with access token:", accessToken.substring(0, 10) + "...");
+      
       const response = await plaidClient.transactionsSync({
         access_token: accessToken,
       });
@@ -179,7 +209,21 @@ export const getTransactions = async ({
     }
 
     return parseStringify(transactions);
-  } catch (error) {
-    console.error("An error occurred while getting the accounts:", error);
+  } catch (error: any) {
+    console.error("An error occurred while getting transactions:", error);
+    
+    // Log detailed error information
+    if (error.response) {
+      console.error("Error response status:", error.response.status);
+      console.error("Error response data:", error.response.data);
+      console.error("Error response headers:", error.response.headers);
+    } else if (error.request) {
+      console.error("Error request:", error.request);
+    } else {
+      console.error("Error message:", error.message);
+    }
+    
+    // Re-throw the error so it can be handled by the calling function
+    throw error;
   }
 };

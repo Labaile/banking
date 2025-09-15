@@ -9,6 +9,7 @@ import { CountryCode, ProcessorTokenCreateRequest, ProcessorTokenCreateRequestPr
 import { plaidClient } from '@/lib/plaid';
 import { revalidatePath } from "next/cache";
 import { addFundingSource, createDwollaCustomer } from "./dwolla.actions";
+import { consoleLoggingIntegration } from "@sentry/nextjs";
 
 const {
   APPWRITE_DATABASE_ID: DATABASE_ID,
@@ -26,9 +27,14 @@ export const getUserInfo = async ({ userId }: getUserInfoProps) => {
       [Query.equal('userId', [userId])]
     )
 
+    if (user.total === 0 || !user.documents[0]) {
+      return null;
+    }
+
     return parseStringify(user.documents[0]);
   } catch (error) {
     console.log(error)
+    return null;
   }
 }
 
@@ -37,7 +43,9 @@ export const signIn = async ({ email, password }: signInProps) => {
     const { account } = await createAdminClient();
     const session = await account.createEmailPasswordSession(email, password);
 
-    cookies().set("appwrite-session", session.secret, {
+    console.log('Session created:', session);
+
+    (await cookies()).set("appwrite-session", JSON.stringify(session), {
       path: "/",
       httpOnly: true,
       sameSite: "strict",
@@ -48,7 +56,8 @@ export const signIn = async ({ email, password }: signInProps) => {
 
     return parseStringify(user);
   } catch (error) {
-    console.error('Error', error);
+    console.error('Sign in error:', error);
+    return null;
   }
 }
 
@@ -78,12 +87,14 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     const dwollaCustomerId = extractCustomerIdFromUrl(dwollaCustomerUrl);
 
+    // Add the required "State" attribute with a default value
     const newUser = await database.createDocument(
       DATABASE_ID!,
       USER_COLLECTION_ID!,
       ID.unique(),
       {
         ...userData,
+        state: userData.state || '', // Add this line - required by Appwrite
         userId: newUserAccount.$id,
         dwollaCustomerId,
         dwollaCustomerUrl
@@ -92,12 +103,16 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
 
     const session = await account.createEmailPasswordSession(email, password);
 
-    cookies().set("appwrite-session", session.secret, {
+    if(session && session.$id && session.secret) {
+    (await cookies()).set("appwrite-session", JSON.stringify(session), {
       path: "/",
       httpOnly: true,
       sameSite: "strict",
       secure: true,
     });
+  }else {
+    console.log('Invalid session object:', session);
+    throw new Error('Invalid session object');}
 
     return parseStringify(newUser);
   } catch (error) {
@@ -105,16 +120,58 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
   }
 }
 
+// lib/actions/user.actions.ts
 export async function getLoggedInUser() {
   try {
-    const { account } = await createSessionClient();
-    const result = await account.get();
+  
+    const { account} = await createSessionClient();
+    const { database } = await createAdminClient();
+    
+    if (!account){
+      console.log("No account found");
+      return null;
+    }
 
-    const user = await getUserInfo({ userId: result.$id})
-
-    return parseStringify(user);
+    const user = await account.get();
+    
+    // Check if user document exists
+    const userDoc = await database.listDocuments(
+      process.env.APPWRITE_DATABASE_ID!,
+      process.env.APPWRITE_USER_COLLECTION_ID!,
+      [Query.equal('userId', user.$id)]
+    );
+    
+    // Create document if it doesn't exist
+    if (userDoc.documents.length === 0) {
+      console.log(`Creating missing document for user: ${user.email}`);
+      
+      const newDoc = await database.createDocument(
+        process.env.APPWRITE_DATABASE_ID!,
+        process.env.APPWRITE_USER_COLLECTION_ID!,
+        ID.unique(),
+        {
+          userId: user.$id,
+          email: user.email,
+          firstName: user.name.split(' ')[0] || 'User',
+          lastName: user.name.split(' ')[1] || '',
+          state: '',
+          address1: '',
+          city: '',
+          postalCode: '',
+          dateOfBirth: '',
+          ssn: '',
+          dwollaCustomerId: '',
+          dwollaCustomerUrl: ''
+        }
+      );
+      
+      console.log(`Document created for user: ${user.email}`);
+      return parseStringify(newDoc);
+    }
+    
+    return parseStringify(userDoc.documents[0]);
   } catch (error) {
-    console.log(error)
+    console.error('Error getting logged in user:', error);
     return null;
   }
 }
@@ -122,11 +179,11 @@ export async function getLoggedInUser() {
 export const logoutAccount = async () => {
   try {
     const { account } = await createSessionClient();
-
-    cookies().delete('appwrite-session');
-
     await account.deleteSession('current');
+
+    (await cookies()).delete('appwrite-session');
   } catch (error) {
+    console.log(error)
     return null;
   }
 }
@@ -138,7 +195,7 @@ export const createLinkToken = async (user: User) => {
         client_user_id: user.$id
       },
       client_name: `${user.firstName} ${user.lastName}`,
-      products: ['auth'] as Products[],
+      products: ['auth', 'transactions', 'identity'] as Products[],
       language: 'en',
       country_codes: ['US'] as CountryCode[],
     }
@@ -262,15 +319,21 @@ export const getBanks = async ({ userId }: getBanksProps) => {
 
 export const getBank = async ({ documentId }: getBankProps) => {
   try {
-    const { database } = await createAdminClient();
+  
+     // Add validation for Appwrite document ID format
+     if (!documentId || !documentId.match(/^[a-zA-Z0-9]{20}$/)) {
+      console.error(`Invalid document ID format: ${documentId}`);
+      return null;
+    }
 
-    const bank = await database.listDocuments(
+    const { database } = await createAdminClient();
+    const bank = await database.getDocument(
       DATABASE_ID!,
       BANK_COLLECTION_ID!,
-      [Query.equal('$id', [documentId])]
+      documentId
     )
 
-    return parseStringify(bank.documents[0]);
+    return parseStringify(bank);
   } catch (error) {
     console.log(error)
   }
