@@ -34,7 +34,7 @@ const Home = async (props: SearchParamProps) => {
             <HeaderBox 
               type="greeting"
               title="Welcome"
-              user={loggedIn?.name || 'Guest'}
+              user={loggedIn.name || 'Guest'}
               subtext="You don't have any accounts yet."
             />
           </header>
@@ -56,7 +56,7 @@ const Home = async (props: SearchParamProps) => {
             <HeaderBox 
               type="greeting"
               title="Welcome"
-              user={loggedIn?.name || 'Guest'}
+              user={loggedIn.name || 'Guest'}
               subtext="No valid account ID found. Please try again."
             />
           </header>
@@ -75,7 +75,7 @@ const Home = async (props: SearchParamProps) => {
           <HeaderBox 
             type="greeting"
             title="Welcome"
-            user={loggedIn?.name || 'Guest'}
+            user={loggedIn.name || 'Guest'}
             subtext="Access and manage your account and transactions efficiently."
           />
 
