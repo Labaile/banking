@@ -77,11 +77,13 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
     );
 
     if(!newUserAccount) throw new Error('Error creating user')
+      console.log('User created:', newUserAccount);
 
     const dwollaCustomerUrl = await createDwollaCustomer({
       ...userData,
-      type: 'personal'
+      type: 'unverified'
     })
+    console.log('Dwolla customer created:', dwollaCustomerUrl);
 
     if(!dwollaCustomerUrl) throw new Error('Error creating Dwolla customer')
 
@@ -94,7 +96,7 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
       ID.unique(),
       {
         ...userData,
-        state: userData.state || '', // Add this line - required by Appwrite
+        //state: userData.state || '', // Add this line - required by Appwrite
         userId: newUserAccount.$id,
         dwollaCustomerId,
         dwollaCustomerUrl
@@ -117,6 +119,7 @@ export const signUp = async ({ password, ...userData }: SignUpParams) => {
     return parseStringify(newUser);
   } catch (error) {
     console.error('Error', error);
+    throw error; // Re-throw the error so it can be caught by the calling function
   }
 }
 
